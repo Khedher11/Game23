@@ -16,14 +16,14 @@
             justify-content: center;
             align-items: center;
             font-family: 'Quicksand', sans-serif;
-            color: #000; /* Black text requested */
+            color: #000;
             overflow: hidden;
             touch-action: none; /* Prevents scrolling on mobile while playing */
         }
 
         .container {
             text-align: center;
-            background: rgba(255, 255, 255, 0.85);
+            background: rgba(255, 255, 255, 0.9);
             padding: 25px;
             border-radius: 25px;
             box-shadow: 0 10px 30px rgba(255, 105, 180, 0.3);
@@ -37,6 +37,7 @@
             color: #ff1493; /* Deep Pink */
             font-size: 28px;
             margin-top: 0;
+            margin-bottom: 15px;
         }
 
         p {
@@ -44,13 +45,15 @@
             line-height: 1.5;
             color: #000;
             font-weight: 600;
+            margin: 10px 0;
         }
 
-        #game-board {
+        /* The Game Area */
+        canvas {
             background-color: #fff0f5;
             border: 3px solid #ff69b4;
             border-radius: 10px;
-            display: none; /* Hidden until start */
+            display: block;
             margin: 0 auto;
             box-shadow: inset 0 0 10px rgba(0,0,0,0.05);
         }
@@ -59,7 +62,7 @@
             background-color: #ff1493;
             color: white;
             border: none;
-            padding: 15px 30px;
+            padding: 12px 30px;
             border-radius: 50px;
             font-size: 20px;
             font-family: 'Quicksand', sans-serif;
@@ -67,12 +70,12 @@
             cursor: pointer;
             box-shadow: 0 5px 15px rgba(255, 20, 147, 0.4);
             transition: transform 0.2s;
-            margin-top: 10px;
+            margin-top: 15px;
+            outline: none;
         }
 
-        .btn:hover {
-            transform: scale(1.05);
-            background-color: #d1107a;
+        .btn:active {
+            transform: scale(0.95);
         }
 
         .hidden {
@@ -80,22 +83,24 @@
         }
 
         #score-board {
-            font-size: 20px;
-            margin-bottom: 10px;
+            font-size: 22px;
+            margin-bottom: 15px;
             color: #d1107a;
             font-weight: bold;
         }
 
-        /* Mobile Swipe Help Text */
         .mobile-hint {
-            font-size: 12px;
-            color: #888;
+            font-size: 14px;
+            color: #666;
             margin-top: 10px;
-            display: none;
+            font-style: italic;
         }
 
-        @media (hover: none) {
-            .mobile-hint { display: block; }
+        img {
+            max-width: 100%;
+            border-radius: 15px;
+            margin-top: 15px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.1);
         }
     </style>
 </head>
@@ -113,14 +118,14 @@
         <div id="game-screen" class="hidden">
             <div id="score-board">Hearts: <span id="score">0</span> / 23</div>
             <canvas id="game-board" width="300" height="300"></canvas>
-            <p class="mobile-hint">Swipe screen to move! 👆</p>
+            <p class="mobile-hint">Swipe on the screen to move! 👆</p>
         </div>
 
         <div id="win-screen" class="hidden">
             <h1>🎉 Happy Birthday! 🎉</h1>
             <p>Happy birthday to my one and all in this world ❤️</p>
             <p>May God keep you safe and make all your wishes come true.</p>
-            <img src="https://media.giphy.com/media/Opfku5rJSEVxn02YXI/giphy.gif" style="max-width: 100%; border-radius: 15px; margin-top:10px;" alt="Cute Hug">
+            <img src="https://media.giphy.com/media/Opfku5rJSEVxn02YXI/giphy.gif" alt="Cute Hug">
         </div>
 
     </div>
@@ -130,35 +135,32 @@
         const ctx = canvas.getContext('2d');
         const scoreElement = document.getElementById('score');
         
-        // GAME SETTINGS
-        const box = 20; // Size of grid squares
-        const winScore = 23; 
-        const gameSpeed = 500; // Higher number = Slower/Easier game
-        
+        // --- GAME CONFIGURATION ---
+        const box = 20;     // Grid size
+        const winScore = 23; // Hearts needed to win
+        const gameSpeed = 130; // Speed (Lower = Faster)
+        // --------------------------
+
         let score = 0;
         let snake = [];
         let food = {};
         let d; // Direction
         let game;
         
-        // Touch controls variables
+        // Touch variables
         let touchStartX = 0;
         let touchStartY = 0;
 
+        // Start the game logic
         function startGame() {
             document.getElementById('intro-screen').classList.add('hidden');
             document.getElementById('game-screen').classList.remove('hidden');
-            canvas.style.display = "block";
             
-            resetGame();
-        }
-
-        function resetGame() {
             score = 0;
             scoreElement.innerText = score;
-            d = "RIGHT"; // Start moving right
+            d = "RIGHT"; // Initial direction
             
-            // Initial Snake Position
+            // Create initial snake
             snake = [];
             snake[0] = { x: 5 * box, y: 8 * box }; 
             
@@ -173,15 +175,9 @@
                 x: Math.floor(Math.random() * (canvas.width/box)) * box,
                 y: Math.floor(Math.random() * (canvas.height/box)) * box
             };
-            // Make sure food doesn't spawn on snake body
-            for(let part of snake){
-                if(part.x == food.x && part.y == food.y){
-                    spawnFood();
-                }
-            }
         }
 
-        // CONTROLS (Keyboard)
+        // KEYBOARD CONTROLS
         document.addEventListener("keydown", direction);
         function direction(event) {
             let key = event.keyCode;
@@ -191,7 +187,7 @@
             else if(key == 40 && d != "UP") d = "DOWN";
         }
 
-        // CONTROLS (Mobile Swipe)
+        // TOUCH CONTROLS (SWIPE)
         document.addEventListener('touchstart', function(e) {
             touchStartX = e.changedTouches[0].screenX;
             touchStartY = e.changedTouches[0].screenY;
@@ -208,59 +204,62 @@
             let yDiff = endY - startY;
 
             if (Math.abs(xDiff) > Math.abs(yDiff)) {
-                // Horizontal swipe
                 if (xDiff > 0 && d != "LEFT") d = "RIGHT";
                 else if (xDiff < 0 && d != "RIGHT") d = "LEFT";
             } else {
-                // Vertical swipe
                 if (yDiff > 0 && d != "UP") d = "DOWN";
                 else if (yDiff < 0 && d != "DOWN") d = "UP";
             }
         }
 
+        // MAIN GAME LOOP
         function draw() {
             // Clear Screen
-            ctx.fillStyle = "#fff0f5"; // Light pink background
+            ctx.fillStyle = "#fff0f5"; 
             ctx.fillRect(0, 0, canvas.width, canvas.height);
 
             // Draw Snake
             for (let i = 0; i < snake.length; i++) {
-                ctx.fillStyle = (i == 0) ? "#ff1493" : "#ff69b4"; // Head is darker pink
-                // Draw rounded squares for cuteness
+                ctx.fillStyle = (i == 0) ? "#ff1493" : "#ff69b4"; 
                 ctx.beginPath();
-                ctx.roundRect(snake[i].x, snake[i].y, box, box, 5);
+                // Draw rounded rectangle manually for compatibility
+                ctx.rect(snake[i].x, snake[i].y, box, box);
                 ctx.fill();
+                ctx.strokeStyle = "#fff0f5";
+                ctx.stroke();
             }
 
             // Draw Food (Heart)
             ctx.fillStyle = "red";
             ctx.font = "20px Arial";
-            ctx.fillText("❤️", food.x - 2, food.y + 18); // Adjust position to center heart
+            ctx.fillText("❤️", food.x - 2, food.y + 18);
 
-            // Snake Head position
+            // Old Head Position
             let snakeX = snake[0].x;
             let snakeY = snake[0].y;
 
-            // Move Snake
+            // Move Head
             if (d == "LEFT") snakeX -= box;
             if (d == "UP") snakeY -= box;
             if (d == "RIGHT") snakeX += box;
             if (d == "DOWN") snakeY += box;
 
-            // Check Collision with Walls (Wrap around or Die? Let's die but restart instantly for ease)
-            if (snakeX < 0 || snakeX >= canvas.width || snakeY < 0 || snakeY >= canvas.height || collision(snakeX, snakeY, snake)) {
-                // Game Over - Just restart silently to keep it low stress
-                resetGame();
-                return;
-            }
+            // --- GOD MODE: WRAP AROUND ---
+            if (snakeX < 0) snakeX = canvas.width - box;
+            else if (snakeX >= canvas.width) snakeX = 0;
+            
+            if (snakeY < 0) snakeY = canvas.height - box;
+            else if (snakeY >= canvas.height) snakeY = 0;
+            // -----------------------------
 
-            // Check if Snake eats Food
+            // Check Collision with Food
+            // Using a proximity check to make it easier
             if (snakeX == food.x && snakeY == food.y) {
                 score++;
                 scoreElement.innerText = score;
                 spawnFood();
 
-                // CHECK WIN CONDITION
+                // Check Win
                 if (score >= winScore) {
                     clearInterval(game);
                     showWinScreen();
@@ -271,18 +270,9 @@
                 snake.pop();
             }
 
-            // Add new Head
+            // Add New Head
             let newHead = { x: snakeX, y: snakeY };
             snake.unshift(newHead);
-        }
-
-        function collision(x, y, array) {
-            for (let i = 0; i < array.length; i++) {
-                if (x == array[i].x && y == array[i].y) {
-                    return true;
-                }
-            }
-            return false;
         }
 
         function showWinScreen() {
