@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Sarrourya's Birthday Game 🎀</title>
+    <link href="https://fonts.googleapis.com/css2?family=Pacifico&family=Quicksand:wght@500;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+    
+    <style>
+        body {
+            background: linear-gradient(135deg, #ffe6fa 0%, #ffc0cb 100%); /* Pinkish gradient */
+            height: 100vh;
+            margin: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-family: 'Quicksand', sans-serif;
+            color: #000; /* Black text requested */
+            overflow: hidden;
+            touch-action: none; /* Prevents scrolling on mobile while playing */
+        }
+
+        .container {
+            text-align: center;
+            background: rgba(255, 255, 255, 0.85);
+            padding: 25px;
+            border-radius: 25px;
+            box-shadow: 0 10px 30px rgba(255, 105, 180, 0.3);
+            width: 90%;
+            max-width: 450px;
+            border: 4px solid #fff;
+        }
+
+        h1 {
+            font-family: 'Pacifico', cursive;
+            color: #ff1493; /* Deep Pink */
+            font-size: 28px;
+            margin-top: 0;
+        }
+
+        p {
+            font-size: 18px;
+            line-height: 1.5;
+            color: #000;
+            font-weight: 600;
+        }
+
+        #game-board {
+            background-color: #fff0f5;
+            border: 3px solid #ff69b4;
+            border-radius: 10px;
+            display: none; /* Hidden until start */
+            margin: 0 auto;
+            box-shadow: inset 0 0 10px rgba(0,0,0,0.05);
+        }
+
+        .btn {
+            background-color: #ff1493;
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 50px;
+            font-size: 20px;
+            font-family: 'Quicksand', sans-serif;
+            font-weight: bold;
+            cursor: pointer;
+            box-shadow: 0 5px 15px rgba(255, 20, 147, 0.4);
+            transition: transform 0.2s;
+            margin-top: 10px;
+        }
+
+        .btn:hover {
+            transform: scale(1.05);
+            background-color: #d1107a;
+        }
+
+        .hidden {
+            display: none !important;
+        }
+
+        #score-board {
+            font-size: 20px;
+            margin-bottom: 10px;
+            color: #d1107a;
+            font-weight: bold;
+        }
+
+        /* Mobile Swipe Help Text */
+        .mobile-hint {
+            font-size: 12px;
+            color: #888;
+            margin-top: 10px;
+            display: none;
+        }
+
+        @media (hover: none) {
+            .mobile-hint { display: block; }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        
+        <div id="intro-screen">
+            <h1>Welcome to Sarrourya‘s annual birthday game! 🎂</h1>
+            <p>In the following challenge you need to get <strong>23 hearts</strong> to unlock the secret message.</p>
+            <p>Good luck! 💖</p>
+            <button class="btn" onclick="startGame()">Start Game</button>
+        </div>
+
+        <div id="game-screen" class="hidden">
+            <div id="score-board">Hearts: <span id="score">0</span> / 23</div>
+            <canvas id="game-board" width="300" height="300"></canvas>
+            <p class="mobile-hint">Swipe screen to move! 👆</p>
+        </div>
+
+        <div id="win-screen" class="hidden">
+            <h1>🎉 Happy Birthday! 🎉</h1>
+            <p>Happy birthday to my one and all in this world ❤️</p>
+            <p>May God keep you safe and make all your wishes come true.</p>
+            <img src="https://media.giphy.com/media/Opfku5rJSEVxn02YXI/giphy.gif" style="max-width: 100%; border-radius: 15px; margin-top:10px;" alt="Cute Hug">
+        </div>
+
+    </div>
+
+    <script>
+        const canvas = document.getElementById('game-board');
+        const ctx = canvas.getContext('2d');
+        const scoreElement = document.getElementById('score');
+        
+        // GAME SETTINGS
+        const box = 20; // Size of grid squares
+        const winScore = 23; 
+        const gameSpeed = 130; // Higher number = Slower/Easier game
+        
+        let score = 0;
+        let snake = [];
+        let food = {};
+        let d; // Direction
+        let game;
+        
+        // Touch controls variables
+        let touchStartX = 0;
+        let touchStartY = 0;
+
+        function startGame() {
+            document.getElementById('intro-screen').classList.add('hidden');
+            document.getElementById('game-screen').classList.remove('hidden');
+            canvas.style.display = "block";
+            
+            resetGame();
+        }
+
+        function resetGame() {
+            score = 0;
+            scoreElement.innerText = score;
+            d = "RIGHT"; // Start moving right
+            
+            // Initial Snake Position
+            snake = [];
+            snake[0] = { x: 5 * box, y: 8 * box }; 
+            
+            spawnFood();
+            
+            if(game) clearInterval(game);
+            game = setInterval(draw, gameSpeed);
+        }
+
+        function spawnFood() {
+            food = {
+                x: Math.floor(Math.random() * (canvas.width/box)) * box,
+                y: Math.floor(Math.random() * (canvas.height/box)) * box
+            };
+            // Make sure food doesn't spawn on snake body
+            for(let part of snake){
+                if(part.x == food.x && part.y == food.y){
+                    spawnFood();
+                }
+            }
+        }
+
+        // CONTROLS (Keyboard)
+        document.addEventListener("keydown", direction);
+        function direction(event) {
+            let key = event.keyCode;
+            if(key == 37 && d != "RIGHT") d = "LEFT";
+            else if(key == 38 && d != "DOWN") d = "UP";
+            else if(key == 39 && d != "LEFT") d = "RIGHT";
+            else if(key == 40 && d != "UP") d = "DOWN";
+        }
+
+        // CONTROLS (Mobile Swipe)
+        document.addEventListener('touchstart', function(e) {
+            touchStartX = e.changedTouches[0].screenX;
+            touchStartY = e.changedTouches[0].screenY;
+        }, false);
+
+        document.addEventListener('touchend', function(e) {
+            let touchEndX = e.changedTouches[0].screenX;
+            let touchEndY = e.changedTouches[0].screenY;
+            handleSwipe(touchStartX, touchStartY, touchEndX, touchEndY);
+        }, false);
+
+        function handleSwipe(startX, startY, endX, endY) {
+            let xDiff = endX - startX;
+            let yDiff = endY - startY;
+
+            if (Math.abs(xDiff) > Math.abs(yDiff)) {
+                // Horizontal swipe
+                if (xDiff > 0 && d != "LEFT") d = "RIGHT";
+                else if (xDiff < 0 && d != "RIGHT") d = "LEFT";
+            } else {
+                // Vertical swipe
+                if (yDiff > 0 && d != "UP") d = "DOWN";
+                else if (yDiff < 0 && d != "DOWN") d = "UP";
+            }
+        }
+
+        function draw() {
+            // Clear Screen
+            ctx.fillStyle = "#fff0f5"; // Light pink background
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // Draw Snake
+            for (let i = 0; i < snake.length; i++) {
+                ctx.fillStyle = (i == 0) ? "#ff1493" : "#ff69b4"; // Head is darker pink
+                // Draw rounded squares for cuteness
+                ctx.beginPath();
+                ctx.roundRect(snake[i].x, snake[i].y, box, box, 5);
+                ctx.fill();
+            }
+
+            // Draw Food (Heart)
+            ctx.fillStyle = "red";
+            ctx.font = "20px Arial";
+            ctx.fillText("❤️", food.x - 2, food.y + 18); // Adjust position to center heart
+
+            // Snake Head position
+            let snakeX = snake[0].x;
+            let snakeY = snake[0].y;
+
+            // Move Snake
+            if (d == "LEFT") snakeX -= box;
+            if (d == "UP") snakeY -= box;
+            if (d == "RIGHT") snakeX += box;
+            if (d == "DOWN") snakeY += box;
+
+            // Check Collision with Walls (Wrap around or Die? Let's die but restart instantly for ease)
+            if (snakeX < 0 || snakeX >= canvas.width || snakeY < 0 || snakeY >= canvas.height || collision(snakeX, snakeY, snake)) {
+                // Game Over - Just restart silently to keep it low stress
+                resetGame();
+                return;
+            }
+
+            // Check if Snake eats Food
+            if (snakeX == food.x && snakeY == food.y) {
+                score++;
+                scoreElement.innerText = score;
+                spawnFood();
+
+                // CHECK WIN CONDITION
+                if (score >= winScore) {
+                    clearInterval(game);
+                    showWinScreen();
+                    return;
+                }
+            } else {
+                // Remove tail
+                snake.pop();
+            }
+
+            // Add new Head
+            let newHead = { x: snakeX, y: snakeY };
+            snake.unshift(newHead);
+        }
+
+        function collision(x, y, array) {
+            for (let i = 0; i < array.length; i++) {
+                if (x == array[i].x && y == array[i].y) {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        function showWinScreen() {
+            document.getElementById('game-screen').classList.add('hidden');
+            document.getElementById('win-screen').classList.remove('hidden');
+            launchConfetti();
+        }
+
+        function launchConfetti() {
+            var duration = 5 * 1000;
+            var animationEnd = Date.now() + duration;
+            var defaults = { startVelocity: 30, spread: 360, ticks: 60, zIndex: 0 };
+
+            var interval = setInterval(function() {
+                var timeLeft = animationEnd - Date.now();
+
+                if (timeLeft <= 0) {
+                    return clearInterval(interval);
+                }
+
+                var particleCount = 50 * (timeLeft / duration);
+                confetti(Object.assign({}, defaults, { particleCount, origin: { x: randomInRange(0.1, 0.3), y: Math.random() - 0.2 } }));
+                confetti(Object.assign({}, defaults, { particleCount, origin: { x: randomInRange(0.7, 0.9), y: Math.random() - 0.2 } }));
+            }, 250);
+        }
+
+        function randomInRange(min, max) {
+            return Math.random() * (max - min) + min;
+        }
+    </script>
+</body>
+</html>
